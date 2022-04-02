@@ -1,0 +1,100 @@
+version: "3"
+services:
+  db:
+    container_name: postgresql
+    image: postgres:14  # https://hub.docker.com/_/postgres
+#    ports:
+#      - "5433"
+    ports:
+      - "5432:5432"
+    volumes:
+      - app-db-data:/var/lib/postgresql/data/pgdata
+    environment:
+      # This optional variable can be used to define another location -
+      # like a subdirectory - for the database files.
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_SERVER=${POSTGRES_SERVER?Variable not set}
+      # This optional environment variable is used in conjunction with POSTGRES_PASSWORD
+      # to set a user and its password. This variable will create the specified user with superuser
+      # power and a database with the same name. If it is not specified, then the default user of
+      # postgres will be used.
+      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
+      # This environment variable is required for you to use the PostgreSQL image.
+      # It must not be empty or undefined. This environment variable sets the superuser
+      # password for PostgreSQL. The default superuser is defined by the POSTGRES_USER environment variable.
+      - POSTGRES_PASSWORD=${POSTGRES_password?Variable not set}
+      - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    depends_on:
+      - db
+    env_file:
+      - .env
+    ports:
+      - "5050:5050"
+
+  app:
+    container_name: app
+    build:
+      context: .
+      dockerfile: app.dockerfile
+    depends_on:
+      - db
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./app:/app
+      - ./assets:/assets
+    environment:
+      - DATABASE_URL=${POSTGRES_URI}
+      - DATABASE_TEST_URL=${POSTGRES_URI}_test
+
+  queue:
+    container_name: rabbitmq
+    # image: rabbitmq:3
+    # Using the below image instead is required to enable the "Broker" tab in the flower UI:
+    image: rabbitmq:3-management
+    #
+    # You also have to change the flower command
+
+  redis:
+    container_name: redis
+    image: redis:6.2-alpine
+
+  celeryworker:
+    container_name: celeryworker
+    image: ${DOCKER_IMAGE_CELERYWORKER}
+    command: celery -A app.worker worker -l info -Q main-queue -c 1
+    build:
+      context: .
+      dockerfile: app.dockerfile
+    volumes:
+      - ./app:/app
+      - ./assets:/assets
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${POSTGRES_URI}
+      - DATABASE_TEST_URL=${POSTGRES_URI}_test
+    depends_on:
+      - app
+      - redis
+      - queue
+
+  flower:
+    container_name: flower
+    image: mher/flower
+    ports:
+      - "5556:5555"
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+    depends_on:
+      - app
+      - redis
+      - celeryworker
+
+volumes:
+  app-db-data:
