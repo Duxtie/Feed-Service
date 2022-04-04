@@ -1,7 +1,4 @@
 from typing import Generator
-
-from fastapi.security import OAuth2PasswordBearer
-from app.core.config import settings
 from app.db.session import SessionLocal
 
 

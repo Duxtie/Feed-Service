@@ -24,8 +24,7 @@ def save_item_file(db, item_id, url: str) -> Any:
     file_path = save_file(url)
 
     # get mime_type
-    mime_types = mimetypes.guess_type(file_path)
-    mime_type = mime_types[0] if mime_types else None
+    mime_type = get_mime_type(file_path)
 
     # save media
     return crud.media.create_item_media(db=db, data={
@@ -62,3 +61,9 @@ def save_file(url: str, file_name: str = None) -> str:
 def make_path(path: str) -> str:
     Path(path).mkdir(parents=True, exist_ok=True)
     return path
+
+
+def get_mime_type(file_path: str) -> str:
+    mime_types = mimetypes.guess_type(file_path)
+    mime_type = mime_types[0] if mime_types else None
+    return mime_type
