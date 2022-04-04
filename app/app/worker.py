@@ -9,6 +9,7 @@ from app.core.celery_app import celery_app
 from app.core.helper import __get, save_item_file
 from app.db.session import SessionLocal
 
+from app.api.deps import get_db
 
 @celery_app.task(acks_late=True)
 def test_celery(word: str) -> str:
@@ -25,7 +26,8 @@ def test_celery2(word: str) -> str:
 
 @celery_app.task()
 def feed_load(new_feed_id, items) -> Any:
-    db = SessionLocal()
+    # db = SessionLocal()
+    db = next(get_db())
 
     # set item progress score
     progress_score = 0
@@ -34,7 +36,7 @@ def feed_load(new_feed_id, items) -> Any:
     result = []
     for item in items:
         # save item
-        new_item = crud.item.create_feed_item(db=db, data={
+        new_item = crud.item.w_create_feed_item(db=db, data={
             "feed_id": new_feed_id,
             "sec_id": __get("g:id", item),
             "title": __get("title", item),
@@ -68,7 +70,7 @@ def feed_load(new_feed_id, items) -> Any:
         current_task.update_state(state='PROGRESS', meta={'process_percent': progress_score + item_score})
 
     # update feed status
-    feed = crud.feed.get(db=db, id=new_feed_id)
-    feed = crud.feed.update(db=db, db_obj=feed, obj_in={"status":"processed"})
+    feed = crud.feed.w_get(db=db, id=new_feed_id)
+    feed = crud.feed.w_update(db=db, db_obj=feed, obj_in={"status":"processed"})
 
     return result

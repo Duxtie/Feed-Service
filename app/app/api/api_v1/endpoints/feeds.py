@@ -9,12 +9,13 @@ from xmltodict import parse
 from app import crud, schemas
 from app.api import deps
 from app.core.celery_app import celery_app
+from app import worker
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[schemas.Feed])
-def read_feeds(
+async def read_feeds(
         db: Session = Depends(deps.get_db),
         skip: int = 0,
         limit: int = 100,
@@ -22,7 +23,7 @@ def read_feeds(
     """
     Retrieve feeds.
     """
-    feeds = crud.feed.get_multi(db, skip=skip, limit=limit)
+    feeds = await crud.feed.get_multi(db, skip=skip, limit=limit)
     return feeds
 
 
@@ -43,7 +44,7 @@ async def create_feed(
         "status": "processing"
     }
 
-    new_feed = crud.feed.create(db=db, data=feed_data)
+    new_feed = await crud.feed.create(db=db, data=feed_data)
 
     new_feed = jsonable_encoder(new_feed)
     new_feed_id = int(new_feed["id"])
@@ -51,14 +52,14 @@ async def create_feed(
 
     # crate items in the background
     args = [new_feed_id, items]
-    # worker.feed_load.delay(*args)
+    # await worker.feed_load.delay(*args)
     celery_app.send_task("app.worker.feed_load", args=args)
 
     return {"id": new_feed_id}
 
 
 @router.get("/{id}")
-def read_feed(
+async def read_feed(
         *,
         db: Session = Depends(deps.get_db),
         id: int,
@@ -66,7 +67,7 @@ def read_feed(
     """
     Get feed by ID.
     """
-    feed = crud.feed.get(db=db, id=id)
+    feed = await crud.feed.get(db=db, id=id)
     if not feed:
         raise HTTPException(status_code=404, detail="Feed not found")
 
@@ -76,7 +77,7 @@ def read_feed(
 
 
 @router.get("/{feed_id}/items", response_model=List[schemas.Item])
-def read_feed_items(
+async def read_feed_items(
         *,
         db: Session = Depends(deps.get_db),
         feed_id: int,
@@ -86,12 +87,12 @@ def read_feed_items(
     """
     Retrieve feeds.
     """
-    feed_items = crud.item.get_multi_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
+    feed_items = await crud.item.get_multi_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
     return feed_items
 
 
 @router.get("/{feed_id}/items/{item_id}")
-def read_feed_item(
+async def read_feed_item(
         *,
         db: Session = Depends(deps.get_db),
         feed_id: int,
@@ -100,14 +101,14 @@ def read_feed_item(
     """
     Get item by feed_id and item_id.
     """
-    feed = crud.item.get_by_feed(db=db, id=item_id, feed_id=feed_id)
+    feed = await crud.item.get_by_feed(db=db, id=item_id, feed_id=feed_id)
     if not feed:
         raise HTTPException(status_code=404, detail="Feed not found")
     return jsonable_encoder(feed)
 
 
 @router.get("/{feed_id}/images")
-def read_feed_images(
+async def read_feed_images(
         *,
         db: Session = Depends(deps.get_db),
         feed_id: int,
@@ -118,7 +119,7 @@ def read_feed_images(
     Retrieve feed images id.
     """
     # get all feed items
-    feed_items = crud.item.get_multi_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
+    feed_items = await crud.item.get_multi_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
     feed_items = jsonable_encoder(feed_items)
 
     # get items id
@@ -127,7 +128,7 @@ def read_feed_images(
         item_ids.append(item['id'])
 
     # get items images
-    feed_items = crud.media.get_multi_by_items(db, item_ids=item_ids, skip=skip, limit=limit)
+    feed_items = await crud.media.get_multi_by_items(db, item_ids=item_ids, skip=skip, limit=limit)
     feed_images = jsonable_encoder(feed_items)
 
     # get images id
@@ -139,7 +140,7 @@ def read_feed_images(
 
 
 @router.get("/{feed_id}/images/{image_id}")
-def read_feed_image(
+async def read_feed_image(
         *,
         db: Session = Depends(deps.get_db),
         feed_id: int,
@@ -151,7 +152,7 @@ def read_feed_image(
     Retrieve feed images id.
     """
     # get all feed items
-    feed_items = crud.item.get_multi_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
+    feed_items = await crud.item.get_multi_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
     feed_items = jsonable_encoder(feed_items)
 
     # get items id
@@ -160,14 +161,14 @@ def read_feed_image(
         item_ids.append(item['id'])
 
     # get items images
-    feed_image = crud.media.get_by_item(db, media_id=image_id, item_ids=item_ids, skip=skip, limit=limit)
+    feed_image = await crud.media.get_by_item(db, media_id=image_id, item_ids=item_ids, skip=skip, limit=limit)
     feed_image = jsonable_encoder(feed_image)
 
     return feed_image
 
 
 @router.delete("/{id}", response_model=schemas.Feed)
-def delete_feed(
+async def delete_feed(
         *,
         db: Session = Depends(deps.get_db),
         id: int,
@@ -175,8 +176,8 @@ def delete_feed(
     """
     Delete an feed.
     """
-    feed = crud.feed.get(db=db, id=id)
+    feed = await crud.feed.get(db=db, id=id)
     if not feed:
         raise HTTPException(status_code=404, detail="Feed not found")
-    feed = crud.feed.remove(db=db, id=id)
+    feed = await crud.feed.remove(db=db, id=id)
     return feed

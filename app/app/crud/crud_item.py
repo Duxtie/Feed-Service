@@ -10,14 +10,21 @@ from app.schemas.item import ItemCreate, ItemUpdate
 
 class CRUDItem(CRUDBase[Item, ItemCreate, ItemUpdate]):
 
-    def create_feed_item(self, db: Session, *, data):
+    async def create_feed_item(self, db: Session, *, data):
         db_obj = self.model(**data)  # type: ignore
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
 
-    def get_by_feed(
+    def w_create_feed_item(self, db: Session, *, data):
+        db_obj = self.model(**data)  # type: ignore
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    async def get_by_feed(
         self, db: Session, *, feed_id: int, id: int, skip: int = 0, limit: int = 100
     ) -> List[Item]:
         return (db.query(self.model)
@@ -27,7 +34,7 @@ class CRUDItem(CRUDBase[Item, ItemCreate, ItemUpdate]):
                 .limit(limit)
                 .all())
 
-    def get_multi_by_feed(
+    async def get_multi_by_feed(
         self, db: Session, *, feed_id: int, skip: int = 0, limit: int = 100
     ) -> List[Item]:
         return (db.query(self.model)

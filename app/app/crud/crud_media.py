@@ -10,14 +10,14 @@ from app.schemas.media import MediaCreate, MediaUpdate
 
 class CRUDMedia(CRUDBase[Media, MediaCreate, MediaUpdate]):
 
-    def create_item_media(self, db: Session, *, data):
+    async def create_item_media(self, db: Session, *, data):
         db_obj = self.model(**data)  # type: ignore
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
 
-    def get_by_item(
+    async def get_by_item(
         self, db: Session, *, item_id: int, id: int, skip: int = 0, limit: int = 100
     ) -> List[Media]:
         return (db.query(self.model)
@@ -27,7 +27,7 @@ class CRUDMedia(CRUDBase[Media, MediaCreate, MediaUpdate]):
                 .limit(limit)
                 .all())
 
-    def get_multi_by_item(
+    async def get_multi_by_item(
         self, db: Session, *, item_id: int, skip: int = 0, limit: int = 100
     ) -> List[Media]:
         return (db.query(self.model)
@@ -36,7 +36,7 @@ class CRUDMedia(CRUDBase[Media, MediaCreate, MediaUpdate]):
                 .limit(limit)
                 .all())
 
-    def get_multi_by_items(
+    async def get_multi_by_items(
         self, db: Session, *, item_ids: List[int], skip: int = 0, limit: int = 100
     ) -> List[Media]:
         return (db.query(self.model)
@@ -45,7 +45,7 @@ class CRUDMedia(CRUDBase[Media, MediaCreate, MediaUpdate]):
                 .limit(limit)
                 .all())
 
-    def get_by_item(
+    async def get_by_item(
         self, db: Session, *, media_id: int, item_ids: List[int], skip: int = 0, limit: int = 100
     ) -> List[Media]:
         return (db.query(self.model)
